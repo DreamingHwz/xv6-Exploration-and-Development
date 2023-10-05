@@ -17,7 +17,7 @@ Add system call  ```int trace(const char *pathname)``` and ```int getcount(void)
 
 A Unix shell is built. It includes a file "wish.c".
 
-### Description
+#### Description
 
 The shell supports these commands:
 * ```exit```: exit the shell
@@ -31,14 +31,14 @@ To run the shell:
 * For interactive mode:  ```./wish```, For batch mode: ```./wish batch.txt```
 * Input command after prompt ```wish>```. For redirection, use ```>``` character like ```ls > output``` (to make my shell uers happy).
 
-### Author
+#### Author
 Skylar Hou 10.12.2022
 
 ## P2B - Scheduling and Virtual Memory in xv6
 
 To change the scheduling policy to  a simple priority-based scheduler, set some pages to read-only or read-and-write, and add a Null-pointer Dereference.
 
-### Introduction
+#### Introduction
 Four system call is added:
 * ```settickets```: Change ```myproc()->tickets``` to ```int number```, which only equals to 1 (high) or 0 (low) in this project.
 
@@ -51,14 +51,14 @@ Similar to ```mprotect``` but change the bit from read-only to read-and-write.
 
 To add a system call, ```usys.S``` ```syscall.c``` ```sysfile.c``` ```sysproc.c``` ```syscall.h``` ```user.h``` might be editted.
 
-### Author
+#### Author
 Skylar Hou
 
 
 ## P3A - Parallel Sort
 It is a multi-thread merge sort.
 
-### Introduction
+#### Introduction
 ```
 typedef struct {
     int key;
@@ -71,7 +71,7 @@ typedef record_t* record_ptr;
 * ```void multithread_sort()```: do multi-thread sort. Each thread sorts part of the records array.
 * ```void output(record_ptr* records, char* filename)```: Output the records array to file.
 
-### Usage
+#### Usage
 
 ```
 gcc -Wall -Werror -pthread -O psort.c -o psort
@@ -79,7 +79,7 @@ gcc -Wall -Werror -pthread -O psort.c -o psort
 ```
 
 
-### Author
+#### Author
 
 Skylar Hou, Yuxin Liu
 
@@ -88,7 +88,7 @@ Skylar Hou, Yuxin Liu
 
 Adding kernel threads to xv6. 
 
-### Overview
+#### Overview
 
 * ```clone``` This call creates a new kernel thread that shares the calling process's address space. The new process uses stack as its user stack.
 * ```join``` This call waits for a child thread that shares the address space with the calling process to exit.
@@ -98,7 +98,7 @@ Adding kernel threads to xv6.
 * ```growproc``` is changed to grow all the child processes that share the same address space with the current process.
 * Some file is modified to add system calls.
 
-### Author
+#### Author
 
 Yuxin Liu, Skylar Hou
 
@@ -115,6 +115,6 @@ A distributed file system includes a file server with the on-disk file system an
 * ```int MFS_Unlink(int pinum, char *name)```: delete a file with ```name``` in parent directory of ```pinum```.
 * ```int MFS_Shutdown()```: tell server to exit.
 
-### Author
+#### Author
 
 Skylar Hou, Yuxin Liu
