@@ -1,0 +1,144 @@
+        -:    0:Source:cache.c
+        -:    0:Graph:cache.gcno
+        -:    0:Data:cache.gcda
+        -:    0:Runs:381
+        -:    1:/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+        -:    2:#include <stdlib.h>
+        -:    3:#include <string.h>
+        -:    4:#include <inttypes.h>
+        -:    5:#include <assert.h>
+        -:    6:
+        -:    7:#ifndef NDEBUG
+        -:    8:#include <signal.h>
+        -:    9:#endif
+        -:   10:
+        -:   11:#include "cache.h"
+        -:   12:
+        -:   13:#ifndef NDEBUG
+        -:   14:const uint64_t redzone_pattern = 0xdeadbeefcafedeed;
+        -:   15:int cache_error = 0;
+        -:   16:#endif
+        -:   17:
+     1308:   18:cache_t* cache_create(const char *name, size_t bufsize, size_t align) {
+     1308:   19:    cache_t* ret = calloc(1, sizeof(cache_t));
+     1308:   20:    char* nm = strdup(name);
+     2616:   21:    if (ret == NULL || nm == NULL ||
+     1308:   22:        pthread_mutex_init(&ret->mutex, NULL) == -1) {
+    #####:   23:        free(ret);
+    #####:   24:        free(nm);
+    #####:   25:        return NULL;
+        -:   26:    }
+        -:   27:
+     1308:   28:    ret->name = nm;
+     1308:   29:    STAILQ_INIT(&ret->head);
+        -:   30:
+        -:   31:#ifndef NDEBUG
+     1308:   32:    ret->bufsize = bufsize + 2 * sizeof(redzone_pattern);
+        -:   33:#else
+        -:   34:    ret->bufsize = bufsize;
+        -:   35:#endif
+    1308*:   36:    assert(ret->bufsize >= sizeof(struct cache_free_s));
+        -:   37:
+        -:   38:    return ret;
+        -:   39:}
+        -:   40:
+       32:   41:void cache_set_limit(cache_t *cache, int limit) {
+       32:   42:    pthread_mutex_lock(&cache->mutex);
+       32:   43:    cache->limit = limit;
+       32:   44:    pthread_mutex_unlock(&cache->mutex);
+       32:   45:}
+        -:   46:
+   371832:   47:static inline void* get_object(void *ptr) {
+        -:   48:#ifndef NDEBUG
+   371832:   49:    uint64_t *pre = ptr;
+   371832:   50:    return pre + 1;
+        -:   51:#else
+        -:   52:    return ptr;
+        -:   53:#endif
+        -:   54:}
+        -:   55:
+    #####:   56:void cache_destroy(cache_t *cache) {
+    #####:   57:    while (!STAILQ_EMPTY(&cache->head)) {
+    #####:   58:        struct cache_free_s *o = STAILQ_FIRST(&cache->head);
+    #####:   59:        STAILQ_REMOVE_HEAD(&cache->head, c_next);
+    #####:   60:        free(o);
+        -:   61:    }
+    #####:   62:    free(cache->name);
+    #####:   63:    pthread_mutex_destroy(&cache->mutex);
+    #####:   64:    free(cache);
+    #####:   65:}
+        -:   66:
+      984:   67:void* cache_alloc(cache_t *cache) {
+      984:   68:    void *ret;
+      984:   69:    pthread_mutex_lock(&cache->mutex);
+      984:   70:    ret = do_cache_alloc(cache);
+      984:   71:    pthread_mutex_unlock(&cache->mutex);
+      984:   72:    return ret;
+        -:   73:}
+        -:   74:
+   371834:   75:void* do_cache_alloc(cache_t *cache) {
+   371834:   76:    void *ret;
+   371834:   77:    void *object;
+   371834:   78:    if (cache->freecurr > 0) {
+   369673:   79:        ret = STAILQ_FIRST(&cache->head);
+   369673:   80:        STAILQ_REMOVE_HEAD(&cache->head, c_next);
+   369673:   81:        object = get_object(ret);
+   369673:   82:        cache->freecurr--;
+     2161:   83:    } else if (cache->limit == 0 || cache->total < cache->limit) {
+     2159:   84:        object = ret = malloc(cache->bufsize);
+     2159:   85:        if (ret != NULL) {
+     2159:   86:            object = get_object(ret);
+        -:   87:
+     2159:   88:            cache->total++;
+        -:   89:        }
+        -:   90:    } else {
+        -:   91:        object = NULL;
+        -:   92:    }
+        -:   93:
+        -:   94:#ifndef NDEBUG
+   371832:   95:    if (object != NULL) {
+        -:   96:        /* add a simple form of buffer-check */
+   371832:   97:        uint64_t *pre = ret;
+   371832:   98:        *pre = redzone_pattern;
+   371832:   99:        ret = pre+1;
+   371832:  100:        memcpy(((char*)ret) + cache->bufsize - (2 * sizeof(redzone_pattern)),
+        -:  101:               &redzone_pattern, sizeof(redzone_pattern));
+        -:  102:    }
+        -:  103:#endif
+        -:  104:
+   371834:  105:    return object;
+        -:  106:}
+        -:  107:
+      984:  108:void cache_free(cache_t *cache, void *ptr) {
+      984:  109:    pthread_mutex_lock(&cache->mutex);
+      984:  110:    do_cache_free(cache, ptr);
+      984:  111:    pthread_mutex_unlock(&cache->mutex);
+      984:  112:}
+        -:  113:
+   371716:  114:void do_cache_free(cache_t *cache, void *ptr) {
+        -:  115:#ifndef NDEBUG
+        -:  116:    /* validate redzone... */
+   371716:  117:    if (memcmp(((char*)ptr) + cache->bufsize - (2 * sizeof(redzone_pattern)),
+        -:  118:               &redzone_pattern, sizeof(redzone_pattern)) != 0) {
+    #####:  119:        raise(SIGABRT);
+    #####:  120:        cache_error = 1;
+    #####:  121:        return;
+        -:  122:    }
+   371716:  123:    uint64_t *pre = ptr;
+   371716:  124:    --pre;
+   371716:  125:    if (*pre != redzone_pattern) {
+    #####:  126:        raise(SIGABRT);
+    #####:  127:        cache_error = -1;
+    #####:  128:        return;
+        -:  129:    }
+   371716:  130:    ptr = pre;
+        -:  131:#endif
+   371716:  132:    if (cache->limit != 0 && cache->limit < cache->total) {
+    #####:  133:        free(ptr);
+    #####:  134:        cache->total--;
+        -:  135:    } else {
+   371716:  136:        STAILQ_INSERT_HEAD(&cache->head, (struct cache_free_s *)ptr, c_next);
+   371716:  137:        cache->freecurr++;
+        -:  138:    }
+        -:  139:}
+        -:  140:

@@ -1,0 +1,487 @@
+('starting', 'build')
+
+**********************************************************************
+
+Test build
+build project using make
+
+**********************************************************************
+Trying to build project using make
+make
+rm -f *.o *.so server client main
+gcc -fPIC -c -Wall libmfs.c -o libmfs.o
+gcc -fPIC -c -Wall udp.c -o udp.o
+gcc -shared -Wl,-soname,libmfs.so -o libmfs.so libmfs.o udp.o -lc
+gcc server.c udp.h udp.c fs.c fs.h ufs.h mfs.h -g -o server
+gcc client.c udp.h udp.c -o client
+
+
+test build PASSED
+ (build project using make)
+
+('starting', 'shutdown')
+
+**********************************************************************
+
+Test shutdown
+init server and client then call shutdown
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 5507
+/tmp/tmpTaznBP/p/server 5507 /home/shou/537hw/p4/Distributed-File-System/test.img
+
+
+test shutdown PASSED
+ (init server and client then call shutdown)
+
+('starting', 'creat')
+
+**********************************************************************
+
+Test creat
+creat a file and check with lookup
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 6109
+/tmp/tmpTaznBP/p/server 6109 /home/shou/537hw/p4/Distributed-File-System/test.img
+
+
+test creat PASSED
+ (creat a file and check with lookup)
+
+('starting', 'write')
+
+**********************************************************************
+
+Test write
+write then read one block
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 6571
+/tmp/tmpTaznBP/p/server 6571 /home/shou/537hw/p4/Distributed-File-System/test.img
+('START BLOCK 1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00', '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00END BLOCK 1')
+('START BLOCK 1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00', '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00END BLOCK 1')
+
+
+test write PASSED
+ (write then read one block)
+
+('starting', 'stat')
+
+**********************************************************************
+
+Test stat
+stat a regular file
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 6582
+/tmp/tmpTaznBP/p/server 6582 /home/shou/537hw/p4/Distributed-File-System/test.img
+Failure: Stat gave wrong type
+
+
+test stat FAILED
+ (stat a regular file)
+ Stat gave wrong type
+
+('starting', 'overwrite')
+
+**********************************************************************
+
+Test overwrite
+overwrite a block
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 5571
+/tmp/tmpTaznBP/p/server 5571 /home/shou/537hw/p4/Distributed-File-System/test.img
+
+
+test overwrite PASSED
+ (overwrite a block)
+
+('starting', 'maxfile')
+
+**********************************************************************
+
+Test maxfile
+write largest possible file
+
+**********************************************************************
+total blocks        39
+  inodes            128 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 7228
+/tmp/tmpTaznBP/p/server 7228 /home/shou/537hw/p4/Distributed-File-System/test.img
+Failure: MFS_Write returned failure inum=1 block=118784
+
+
+test maxfile FAILED
+ (write largest possible file)
+ MFS_Write returned failure inum=1 block=118784
+
+('starting', 'maxfile2')
+
+**********************************************************************
+
+Test maxfile2
+write more blocks than possible
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 9186
+/tmp/tmpTaznBP/p/server 9186 /home/shou/537hw/p4/Distributed-File-System/test.img
+31
+Failure: MFS_Write returned failure inum=1 block=118784
+
+
+test maxfile2 FAILED
+ (write more blocks than possible)
+ MFS_Write returned failure inum=1 block=118784
+
+('starting', 'dir1')
+
+**********************************************************************
+
+Test dir1
+check root for dot entries
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 7976
+/tmp/tmpTaznBP/p/server 7976 /home/shou/537hw/p4/Distributed-File-System/test.img
+
+
+test dir1 PASSED
+ (check root for dot entries)
+
+('starting', 'dir2')
+
+**********************************************************************
+
+Test dir2
+create a new directory and check it
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 9306
+/tmp/tmpTaznBP/p/server 9306 /home/shou/537hw/p4/Distributed-File-System/test.img
+Failure: MFS_Lookup returned failure inum=1 name='.'
+
+
+test dir2 FAILED
+ (create a new directory and check it)
+ MFS_Lookup returned failure inum=1 name='.'
+
+('starting', 'baddir')
+
+**********************************************************************
+
+Test baddir
+try to create a file with a file parent inode
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 6687
+/tmp/tmpTaznBP/p/server 6687 /home/shou/537hw/p4/Distributed-File-System/test.img
+Failure: MFS_Creat should fail if pinum is not a directory
+
+
+test baddir FAILED
+ (try to create a file with a file parent inode)
+ MFS_Creat should fail if pinum is not a directory
+
+('starting', 'baddir2')
+
+**********************************************************************
+
+Test baddir2
+try to lookup a file with a file parent inode
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 9056
+/tmp/tmpTaznBP/p/server 9056 /home/shou/537hw/p4/Distributed-File-System/test.img
+
+
+test baddir2 PASSED
+ (try to lookup a file with a file parent inode)
+
+('starting', 'unlink')
+
+**********************************************************************
+
+Test unlink
+unlink a file
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 9922
+/tmp/tmpTaznBP/p/server 9922 /home/shou/537hw/p4/Distributed-File-System/test.img
+
+
+test unlink PASSED
+ (unlink a file)
+
+('starting', 'unlink2')
+
+**********************************************************************
+
+Test unlink2
+unlink a directory
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 8848
+/tmp/tmpTaznBP/p/server 8848 /home/shou/537hw/p4/Distributed-File-System/test.img
+
+
+test unlink2 PASSED
+ (unlink a directory)
+
+('starting', 'empty')
+
+**********************************************************************
+
+Test empty
+unlink a non-empty directory
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 9093
+/tmp/tmpTaznBP/p/server 9093 /home/shou/537hw/p4/Distributed-File-System/test.img
+Failure: MFS_Unlink should fail on non-empty dir
+
+
+test empty FAILED
+ (unlink a non-empty directory)
+ MFS_Unlink should fail on non-empty dir
+
+('starting', 'name')
+
+**********************************************************************
+
+Test name
+name too long
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 6478
+/tmp/tmpTaznBP/p/server 6478 /home/shou/537hw/p4/Distributed-File-System/test.img
+
+
+test name PASSED
+ (name too long)
+
+('starting', 'persist')
+
+**********************************************************************
+
+Test persist
+restart server after creating a file
+
+**********************************************************************
+total blocks        36
+  inodes            32 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 8187
+/tmp/tmpTaznBP/p/server 8187 /home/shou/537hw/p4/Distributed-File-System/test.img
+Failure: MFS_Lookup returned failure inum=0 name='test'
+
+
+test persist FAILED
+ (restart server after creating a file)
+ MFS_Lookup returned failure inum=0 name='test'
+
+('starting', 'bigdir')
+
+**********************************************************************
+
+Test bigdir
+create a directory with 126 files
+
+**********************************************************************
+total blocks        39
+  inodes            128 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 8665
+/tmp/tmpTaznBP/p/server 8665 /home/shou/537hw/p4/Distributed-File-System/test.img
+
+
+test bigdir PASSED
+ (create a directory with 126 files)
+
+('starting', 'deep')
+
+**********************************************************************
+
+Test deep
+create many deeply nested directories
+
+**********************************************************************
+total blocks        39
+  inodes            128 [size of each: 128]
+  data blocks       32
+layout details
+  inode bitmap address/len 1 [1]
+  data bitmap address/len  2 [1]
+Starting server on port 9770
+/tmp/tmpTaznBP/p/server 9770 /home/shou/537hw/p4/Distributed-File-System/test.img
+Failure: MFS_Creat returned failure inum=3 type=0 name='2'
+
+
+test deep FAILED
+ (create many deeply nested directories)
+ MFS_Creat returned failure inum=3 type=0 name='2'
+
+**********************************************************************
+Summary:
+test build PASSED
+ (build project using make)
+
+test shutdown PASSED
+ (init server and client then call shutdown)
+
+test creat PASSED
+ (creat a file and check with lookup)
+
+test write PASSED
+ (write then read one block)
+
+test stat FAILED
+ (stat a regular file)
+ Stat gave wrong type
+
+test overwrite PASSED
+ (overwrite a block)
+
+test maxfile FAILED
+ (write largest possible file)
+ MFS_Write returned failure inum=1 block=118784
+
+test maxfile2 FAILED
+ (write more blocks than possible)
+ MFS_Write returned failure inum=1 block=118784
+
+test dir1 PASSED
+ (check root for dot entries)
+
+test dir2 FAILED
+ (create a new directory and check it)
+ MFS_Lookup returned failure inum=1 name='.'
+
+test baddir FAILED
+ (try to create a file with a file parent inode)
+ MFS_Creat should fail if pinum is not a directory
+
+test baddir2 PASSED
+ (try to lookup a file with a file parent inode)
+
+test unlink PASSED
+ (unlink a file)
+
+test unlink2 PASSED
+ (unlink a directory)
+
+test empty FAILED
+ (unlink a non-empty directory)
+ MFS_Unlink should fail on non-empty dir
+
+test name PASSED
+ (name too long)
+
+test persist FAILED
+ (restart server after creating a file)
+ MFS_Lookup returned failure inum=0 name='test'
+
+test bigdir PASSED
+ (create a directory with 126 files)
+
+test deep FAILED
+ (create many deeply nested directories)
+ MFS_Creat returned failure inum=3 type=0 name='2'
+
+Passed 11 of 19 tests.
+Overall 11 of 19

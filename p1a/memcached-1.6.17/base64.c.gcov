@@ -1,0 +1,209 @@
+        -:    0:Source:base64.c
+        -:    0:Graph:base64.gcno
+        -:    0:Data:base64.gcda
+        -:    0:Runs:381
+        -:    1:/*
+        -:    2: * Base64 encoding/decoding (RFC1341)
+        -:    3: * Copyright (c) 2005-2011, Jouni Malinen <j@w1.fi>
+        -:    4: * Modified by Dormando
+        -:    5: *
+        -:    6: * This software may be distributed under the terms of the BSD license.
+        -:    7: * Original license included below:
+        -:    8: *
+        -:    9:License
+        -:   10:-------
+        -:   11:
+        -:   12:This software may be distributed, used, and modified under the terms of
+        -:   13:BSD license:
+        -:   14:
+        -:   15:Redistribution and use in source and binary forms, with or without
+        -:   16:modification, are permitted provided that the following conditions are
+        -:   17:met:
+        -:   18:
+        -:   19:1. Redistributions of source code must retain the above copyright
+        -:   20:   notice, this list of conditions and the following disclaimer.
+        -:   21:
+        -:   22:2. Redistributions in binary form must reproduce the above copyright
+        -:   23:   notice, this list of conditions and the following disclaimer in the
+        -:   24:   documentation and/or other materials provided with the distribution.
+        -:   25:
+        -:   26:3. Neither the name(s) of the above-listed copyright holder(s) nor the
+        -:   27:   names of its contributors may be used to endorse or promote products
+        -:   28:   derived from this software without specific prior written permission.
+        -:   29:
+        -:   30:THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+        -:   31:"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+        -:   32:LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+        -:   33:A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+        -:   34:OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+        -:   35:SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+        -:   36:LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+        -:   37:DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+        -:   38:THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+        -:   39:(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        -:   40:OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        -:   41: */
+        -:   42:
+        -:   43:/* Changes from original code:
+        -:   44: * - decode table is pre-generated
+        -:   45: * - no line splitting on encoder
+        -:   46: * - output buffers are passed in instead of malloc'ed
+        -:   47: * - returns encoded/decoded length instead of pointer.
+        -:   48: */
+        -:   49:
+        -:   50:#include <stddef.h>
+        -:   51:#include "base64.h"
+        -:   52:
+        -:   53:static const unsigned char base64_table[65] =
+        -:   54:    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        -:   55:
+        -:   56:/* Original decode function generated the table every time. I used the code to
+        -:   57: * print this table and pre-generate it instead.
+        -:   58: */
+        -:   59:static const unsigned char dtable[256] = {
+        -:   60:128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+        -:   61:128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+        -:   62:128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+        -:   63:62, 128, 128, 128, 63, 52, 53, 54, 55, 56, 57, 58, 59, 60,
+        -:   64:61, 128, 128, 128, 0, 128, 128, 128, 0, 1, 2, 3, 4, 5,
+        -:   65:6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+        -:   66:20, 21, 22, 23, 24, 25, 128, 128, 128, 128, 128, 128, 26, 27,
+        -:   67:28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
+        -:   68:42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 128, 128, 128, 128,
+        -:   69:128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+        -:   70:128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+        -:   71:128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+        -:   72:128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+        -:   73:128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+        -:   74:128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+        -:   75:128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+        -:   76:128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+        -:   77:128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128,
+        -:   78:128, 128, 128
+        -:   79:};
+        -:   80:
+        -:   81:/**
+        -:   82: * base64_encode - Base64 encode
+        -:   83: * @src: Data to be encoded
+        -:   84: * @len: Length of the data to be encoded
+        -:   85: * @out: output uffer
+        -:   86: * @out_len: length of output buffer
+        -:   87: * Returns: Number of actual bytes encoded into the buffer
+        -:   88: * or 0 on failure
+        -:   89: *
+        -:   90: * Output buffer is nul terminated to make it easier to use as a C string.
+        -:   91: * The nul terminator is * not included in the return length.
+        -:   92: */
+        1:   93:size_t base64_encode(const unsigned char *src, size_t len,
+        -:   94:                  unsigned char *out, size_t out_len)
+        -:   95:{
+        1:   96:    unsigned char *pos;
+        1:   97:    const unsigned char *end, *in;
+        1:   98:    size_t olen;
+        -:   99:
+        1:  100:    olen = len * 4 / 3 + 4; /* 3-byte blocks to 4-byte */
+        1:  101:    olen += olen / 72; /* line feeds */
+        1:  102:    olen++; /* nul termination */
+        1:  103:    if (olen < len) {
+        -:  104:        return 0; /* integer overflow */
+        -:  105:    }
+        1:  106:    if (olen > out_len) {
+        -:  107:        return 0; /* not enough space in output buffer */
+        -:  108:    }
+        1:  109:    if (out == NULL) {
+        -:  110:        return 0;
+        -:  111:    }
+        -:  112:
+        1:  113:    end = src + len;
+        1:  114:    in = src;
+        1:  115:    pos = out;
+        4:  116:    while (end - in >= 3) {
+        3:  117:        *pos++ = base64_table[in[0] >> 2];
+        3:  118:        *pos++ = base64_table[((in[0] & 0x03) << 4) | (in[1] >> 4)];
+        3:  119:        *pos++ = base64_table[((in[1] & 0x0f) << 2) | (in[2] >> 6)];
+        3:  120:        *pos++ = base64_table[in[2] & 0x3f];
+        3:  121:        in += 3;
+        -:  122:    }
+        -:  123:
+        1:  124:    if (end - in) {
+    #####:  125:        *pos++ = base64_table[in[0] >> 2];
+    #####:  126:        if (end - in == 1) {
+    #####:  127:            *pos++ = base64_table[(in[0] & 0x03) << 4];
+    #####:  128:            *pos++ = '=';
+        -:  129:        } else {
+    #####:  130:            *pos++ = base64_table[((in[0] & 0x03) << 4) |
+    #####:  131:                          (in[1] >> 4)];
+    #####:  132:            *pos++ = base64_table[(in[1] & 0x0f) << 2];
+        -:  133:        }
+    #####:  134:        *pos++ = '=';
+        -:  135:    }
+        -:  136:
+        1:  137:    *pos = '\0';
+        1:  138:    return pos - out;
+        -:  139:}
+        -:  140:
+        -:  141:
+        -:  142:/**
+        -:  143: * base64_decode - Base64 decode
+        -:  144: * @src: Data to be decoded
+        -:  145: * @len: Length of the data to be decoded
+        -:  146: * @out: Output buffer to decode into
+        -:  147: * @out_len: Length of output buffer
+        -:  148: * Returns: Length of encoded data, or 0 on failure
+        -:  149: */
+        2:  150:size_t base64_decode(const unsigned char *src, size_t len,
+        -:  151:                  unsigned char *out, size_t out_len)
+        -:  152:{
+        2:  153:    unsigned char *pos, block[4], tmp;
+        2:  154:    size_t i, count, olen;
+        2:  155:    int pad = 0;
+        -:  156:
+        2:  157:    count = 0;
+       26:  158:    for (i = 0; i < len; i++) {
+       24:  159:        if (dtable[src[i]] != 0x80)
+       24:  160:            count++;
+        -:  161:    }
+        -:  162:
+        2:  163:    if (count == 0 || count % 4)
+        -:  164:        return 0;
+        -:  165:
+        2:  166:    olen = count / 4 * 3;
+        2:  167:    if (olen > out_len) {
+        -:  168:        return 0;
+        -:  169:    }
+        2:  170:    pos = out;
+        2:  171:    if (out == NULL) {
+        -:  172:        return 0;
+        -:  173:    }
+        -:  174:
+        -:  175:    count = 0;
+       26:  176:    for (i = 0; i < len; i++) {
+       24:  177:        tmp = dtable[src[i]];
+      24*:  178:        if (tmp == 0x80)
+    #####:  179:            continue;
+        -:  180:
+       24:  181:        if (src[i] == '=')
+    #####:  182:            pad++;
+       24:  183:        block[count] = tmp;
+       24:  184:        count++;
+       24:  185:        if (count == 4) {
+        6:  186:            *pos++ = (block[0] << 2) | (block[1] >> 4);
+        6:  187:            *pos++ = (block[1] << 4) | (block[2] >> 2);
+        6:  188:            *pos++ = (block[2] << 6) | block[3];
+        6:  189:            count = 0;
+        6:  190:            if (pad) {
+    #####:  191:                if (pad == 1)
+        -:  192:                    pos--;
+    #####:  193:                else if (pad == 2)
+        -:  194:                    pos -= 2;
+        -:  195:                else {
+        -:  196:                    /* Invalid padding */
+        -:  197:                    return 0;
+        -:  198:                }
+        -:  199:                break;
+        -:  200:            }
+        -:  201:        }
+        -:  202:    }
+        -:  203:
+        2:  204:    return pos - out;
+        -:  205:}

@@ -1,0 +1,447 @@
+        -:    0:Source:restart.c
+        -:    0:Graph:restart.gcno
+        -:    0:Data:restart.gcda
+        -:    0:Runs:381
+        -:    1:#include "memcached.h"
+        -:    2:
+        -:    3:#include "restart.h"
+        -:    4:
+        -:    5:#include <stdio.h>
+        -:    6:#include <stdlib.h>
+        -:    7:#include <sys/mman.h>
+        -:    8:#include <sys/types.h>
+        -:    9:#include <sys/stat.h>
+        -:   10:#include <fcntl.h>
+        -:   11:#include <string.h>
+        -:   12:
+        -:   13:typedef struct _restart_data_cb restart_data_cb;
+        -:   14:
+        -:   15:struct _restart_data_cb {
+        -:   16:    void *data; // user supplied opaque data.
+        -:   17:    struct _restart_data_cb *next; // callbacks are ordered stack
+        -:   18:    restart_check_cb ccb;
+        -:   19:    restart_save_cb scb;
+        -:   20:    char tag[RESTART_TAG_MAXLEN];
+        -:   21:};
+        -:   22:
+        -:   23:// TODO: struct to hand back to caller.
+        -:   24:static int mmap_fd = 0;
+        -:   25:static void *mmap_base = NULL;
+        -:   26:static size_t slabmem_limit = 0;
+        -:   27:char *memory_file = NULL;
+        -:   28:
+        -:   29:static restart_data_cb *cb_stack = NULL;
+        -:   30:
+        -:   31:// Allows submodules and engines to have independent check and save metadata
+        -:   32:// routines for the restart code.
+        2:   33:void restart_register(const char *tag, restart_check_cb ccb, restart_save_cb scb, void *data) {
+        2:   34:    restart_data_cb *cb = calloc(1, sizeof(restart_data_cb));
+        2:   35:    if (cb == NULL) {
+    #####:   36:        fprintf(stderr, "[restart] failed to allocate callback register\n");
+    #####:   37:        abort();
+        -:   38:    }
+        -:   39:
+        -:   40:    // Handle first time call initialization inline so we don't need separate
+        -:   41:    // API call.
+        2:   42:    if (cb_stack == NULL) {
+        2:   43:        cb_stack = cb;
+        -:   44:    } else {
+        -:   45:        // Ensure we fire the callbacks in registration order.
+        -:   46:        // Someday I'll get a queue.h overhaul.
+        -:   47:        restart_data_cb *finder = cb_stack;
+    #####:   48:        while (finder->next != NULL) {
+        -:   49:            finder = finder->next;
+        -:   50:        }
+    #####:   51:        finder->next = cb;
+        -:   52:    }
+        -:   53:
+        2:   54:    safe_strcpy(cb->tag, tag, RESTART_TAG_MAXLEN);
+        2:   55:    cb->data = data;
+        2:   56:    cb->ccb = *ccb;
+        2:   57:    cb->scb = *scb;
+        2:   58:}
+        -:   59:
+        -:   60:typedef struct {
+        -:   61:    FILE *f;
+        -:   62:    restart_data_cb *cb;
+        -:   63:    char *line;
+        -:   64:    bool done;
+        -:   65:} restart_cb_ctx;
+        -:   66:
+        -:   67:// TODO: error string from cb?
+        -:   68:// - look for final line with checksum
+        -:   69:// - checksum entire file (up until final line)
+        -:   70:// - seek to start
+        -:   71:
+        2:   72:static int restart_check(const char *file) {
+        -:   73:    // metadata is kept in a separate file.
+        2:   74:    size_t flen = strlen(file);
+        2:   75:    const char *ext = ".meta";
+        2:   76:    char *metafile = calloc(1, flen + strlen(ext) + 1);
+        2:   77:    if (metafile == NULL) {
+        -:   78:        // probably in a really bad position if we hit here, so don't start.
+    #####:   79:        fprintf(stderr, "[restart] failed to allocate memory for restart check\n");
+    #####:   80:        abort();
+        -:   81:    }
+        2:   82:    memcpy(metafile, file, flen);
+        2:   83:    memcpy(metafile+flen, ext, strlen(ext));
+        -:   84:
+        2:   85:    FILE *f = fopen(metafile, "r");
+        2:   86:    if (f == NULL) {
+        1:   87:        fprintf(stderr, "[restart] no metadata save file, starting with a clean cache\n");
+        1:   88:        free(metafile);
+        1:   89:        return -1;
+        -:   90:    }
+        -:   91:
+        1:   92:    restart_cb_ctx ctx;
+        -:   93:
+        1:   94:    ctx.f = f;
+        1:   95:    ctx.cb = NULL;
+        1:   96:    ctx.line = NULL;
+        1:   97:    ctx.done = false;
+        1:   98:    if (restart_get_kv(&ctx, NULL, NULL) != RESTART_DONE) {
+        -:   99:        // First line must be a tag, so read it in and set up the proper
+        -:  100:        // callback here.
+    #####:  101:        fprintf(stderr, "[restart] corrupt metadata file\n");
+        -:  102:        // TODO: this should probably just return -1 and skip the reuse.
+    #####:  103:        abort();
+        -:  104:    }
+        1:  105:    if (ctx.cb == NULL) {
+    #####:  106:        fprintf(stderr, "[restart] Failed to read a tag from metadata file\n");
+    #####:  107:        abort();
+        -:  108:    }
+        -:  109:
+        -:  110:    // loop call the callback, check result code.
+        2:  111:    bool failed = false;
+        2:  112:    while (!ctx.done) {
+        1:  113:        restart_data_cb *cb = ctx.cb;
+        1:  114:        if (cb->ccb(cb->tag, &ctx, cb->data) != 0) {
+        -:  115:            failed = true;
+        -:  116:            break;
+        -:  117:        }
+        -:  118:    }
+        -:  119:
+        1:  120:    if (ctx.line)
+    #####:  121:        free(ctx.line);
+        -:  122:
+        1:  123:    fclose(f);
+        -:  124:
+        1:  125:    unlink(metafile);
+        1:  126:    free(metafile);
+        -:  127:
+        1:  128:    if (failed) {
+    #####:  129:        fprintf(stderr, "[restart] failed to validate metadata, starting with a clean cache\n");
+    #####:  130:        return -1;
+        -:  131:    } else {
+        -:  132:        return 0;
+        -:  133:    }
+        -:  134:}
+        -:  135:
+        -:  136:// This function advances the file read while being called directly from the
+        -:  137:// callback.
+        -:  138:// The control inversion here (callback calling in which might change the next
+        -:  139:// callback) allows the callbacks to set up proper loops or sequences for
+        -:  140:// reading data back, avoiding an event model.
+       19:  141:enum restart_get_kv_ret restart_get_kv(void *ctx, char **key, char **val) {
+       19:  142:    char *line = NULL;
+       19:  143:    size_t len = 0;
+       19:  144:    restart_data_cb *cb = NULL;
+       19:  145:    restart_cb_ctx *c = (restart_cb_ctx *) ctx;
+        -:  146:    // free previous line.
+        -:  147:    // we could just pass it into getline, but it can randomly realloc so we'd
+        -:  148:    // have to re-assign it into the structure anyway.
+       19:  149:    if (c->line != NULL) {
+       17:  150:        free(c->line);
+       17:  151:        c->line = NULL;
+        -:  152:    }
+        -:  153:
+       19:  154:    if (getline(&line, &len, c->f) != -1) {
+        -:  155:        // First char is an indicator:
+        -:  156:        // T for TAG, changing the callback we use.
+        -:  157:        // K for key/value, to ship to the active callback.
+       18:  158:        char *p = line;
+      341:  159:        while (*p != '\n') {
+      323:  160:            p++;
+        -:  161:        }
+       18:  162:        *p = '\0';
+        -:  163:
+       18:  164:        if (line[0] == 'T') {
+        1:  165:            cb = cb_stack;
+        1:  166:            while (cb != NULL) {
+        -:  167:                // NOTE: len is allocated size, not line len. need to chomp \n
+        1:  168:                if (strcmp(cb->tag, line+1) == 0) {
+        -:  169:                    break;
+        -:  170:                }
+    #####:  171:                cb = cb->next;
+        -:  172:            }
+        1:  173:            if (cb == NULL) {
+    #####:  174:                fprintf(stderr, "[restart] internal handler for metadata tag not found: %s:\n", line+1);
+    #####:  175:                return RESTART_NOTAG;
+        -:  176:            }
+        1:  177:            c->cb = cb;
+       17:  178:        } else if (line[0] == 'K') {
+       17:  179:            char *p = line+1; // start just ahead of the token.
+        -:  180:            // tokenize the string and return the pointers?
+       17:  181:            if (key != NULL) {
+       17:  182:                *key = p;
+        -:  183:            }
+        -:  184:
+        -:  185:            // turn key into a normal NULL terminated string.
+      211:  186:            while (*p != ' ' && (p - line < len)) {
+      194:  187:                p++;
+        -:  188:            }
+       17:  189:            *p = '\0';
+       17:  190:            p++;
+        -:  191:
+        -:  192:            // value _should_ run until where the newline was, which is \0 now
+       17:  193:            if (val != NULL) {
+       17:  194:                *val = p;
+        -:  195:            }
+       17:  196:            c->line = line;
+        -:  197:
+       17:  198:            return RESTART_OK;
+        -:  199:        } else {
+        -:  200:            // FIXME: proper error chain.
+    #####:  201:            fprintf(stderr, "[restart] invalid metadata line:\n\n%s\n", line);
+    #####:  202:            free(line);
+    #####:  203:            return RESTART_BADLINE;
+        -:  204:        }
+        -:  205:    } else {
+        -:  206:        // EOF or error in read.
+        1:  207:        c->done = true;
+        -:  208:    }
+        -:  209:
+        -:  210:    return RESTART_DONE;
+        -:  211:}
+        -:  212:
+        -:  213:// TODO:
+        -:  214:// - rolling checksum along with the writes.
+        -:  215:// - write final line + checksum + byte count or w/e.
+        -:  216:
+        1:  217:static int restart_save(const char *file) {
+        -:  218:    // metadata is kept in a separate file.
+        -:  219:    // FIXME: function.
+        1:  220:    size_t flen = strlen(file);
+        1:  221:    const char *ext = ".meta";
+        1:  222:    size_t extlen = strlen(ext);
+        1:  223:    char *metafile = calloc(1, flen + extlen + 1);
+        1:  224:    if (metafile == NULL) {
+    #####:  225:        fprintf(stderr, "[restart] failed to allocate memory during metadata save\n");
+    #####:  226:        return -1;
+        -:  227:    }
+        1:  228:    memcpy(metafile, file, flen);
+        1:  229:    memcpy(metafile+flen, ext, extlen);
+        -:  230:
+        -:  231:    // restrictive permissions for the metadata file.
+        -:  232:    // TODO: also for the mmap file eh? :P
+        1:  233:    mode_t oldmask = umask(~(S_IRUSR | S_IWUSR));
+        1:  234:    FILE *f = fopen(metafile, "w");
+        1:  235:    umask(oldmask);
+        1:  236:    if (f == NULL) {
+        -:  237:        // FIXME: correct error handling.
+    #####:  238:        free(metafile);
+    #####:  239:        perror("failed to write metadata file");
+    #####:  240:        return -1;
+        -:  241:    }
+        -:  242:
+        1:  243:    restart_data_cb *cb = cb_stack;
+        1:  244:    restart_cb_ctx ctx;
+        1:  245:    ctx.f = f;
+        2:  246:    while (cb != NULL) {
+        -:  247:        // Plugins/engines in the metadata file are separated by tag lines.
+        1:  248:        fprintf(f, "T%s\n", cb->tag);
+        1:  249:        if (cb->scb(cb->tag, &ctx, cb->data) != 0) {
+    #####:  250:            fclose(f);
+    #####:  251:            free(metafile);
+    #####:  252:            return -1;
+        -:  253:        }
+        -:  254:
+        1:  255:        cb = cb->next;
+        -:  256:    }
+        -:  257:
+        1:  258:    fclose(f);
+        1:  259:    free(metafile);
+        -:  260:
+        1:  261:    return 0;
+        -:  262:}
+        -:  263:
+        -:  264:// Keys and values must not contain spaces or newlines.
+        -:  265:// Could offer an interface that uriencodes values for the caller, however
+        -:  266:// nothing currently would use it, so add when necessary.
+        -:  267:#define SET_VAL_MAX 4096
+       17:  268:void restart_set_kv(void *ctx, const char *key, const char *fmt, ...) {
+       17:  269:    va_list ap;
+       17:  270:    restart_cb_ctx *c = (restart_cb_ctx *) ctx;
+       17:  271:    char valbuf[SET_VAL_MAX];
+        -:  272:
+       17:  273:    va_start(ap, fmt);
+       17:  274:    int vlen = vsnprintf(valbuf, SET_VAL_MAX-1, fmt, ap);
+       17:  275:    va_end(ap);
+        -:  276:    // This is heavy handed. We need to protect against corrupt data as much
+        -:  277:    // as possible. The buffer is large and these values are currently small,
+        -:  278:    // it will take a significant mistake to land here.
+       17:  279:    if (vlen >= SET_VAL_MAX) {
+    #####:  280:        fprintf(stderr, "[restart] fatal error while saving metadata state, value too long for: %s %s",
+        -:  281:                key, valbuf);
+    #####:  282:        abort();
+        -:  283:    }
+        -:  284:
+       17:  285:    fprintf(c->f, "K%s %s\n", key, valbuf);
+        -:  286:    // TODO: update crc32c
+       17:  287:}
+        -:  288:
+        2:  289:static long _find_pagesize(void) {
+        -:  290:#if defined(HAVE_SYSCONF) && defined(_SC_PAGESIZE)
+        2:  291:    return sysconf(_SC_PAGESIZE);
+        -:  292:#else
+        -:  293:    // A good guess.
+        -:  294:    return 4096;
+        -:  295:#endif
+        -:  296:}
+        -:  297:
+        2:  298:bool restart_mmap_open(const size_t limit, const char *file, void **mem_base) {
+        2:  299:    bool reuse_mmap = true;
+        -:  300:
+        2:  301:    long pagesize = _find_pagesize();
+        2:  302:    memory_file = strdup(file);
+        2:  303:    mmap_fd = open(file, O_RDWR|O_CREAT, S_IRWXU);
+        2:  304:    if (mmap_fd == -1) {
+    #####:  305:        perror("failed to open file for mmap");
+    #####:  306:        abort();
+        -:  307:    }
+        2:  308:    if (ftruncate(mmap_fd, limit) != 0) {
+    #####:  309:        perror("ftruncate failed");
+    #####:  310:        abort();
+        -:  311:    }
+        -:  312:    /* Allocate everything in a big chunk with malloc */
+        2:  313:    if (limit % pagesize) {
+        -:  314:        // This is a sanity check; shouldn't ever be possible since we
+        -:  315:        // increase memory by whole megabytes.
+    #####:  316:        fprintf(stderr, "[restart] memory limit not divisible evenly by pagesize (please report bug)\n");
+    #####:  317:        abort();
+        -:  318:    }
+        2:  319:    mmap_base = mmap(NULL, limit, PROT_READ|PROT_WRITE, MAP_SHARED, mmap_fd, 0);
+        2:  320:    if (mmap_base == MAP_FAILED) {
+    #####:  321:        perror("failed to mmap, aborting");
+    #####:  322:        abort();
+        -:  323:    }
+        -:  324:    // Set the limit before calling check_mmap, so we can find the meta page..
+        2:  325:    slabmem_limit = limit;
+        2:  326:    if (restart_check(file) != 0) {
+        1:  327:        reuse_mmap = false;
+        -:  328:    }
+        2:  329:    *mem_base = mmap_base;
+        -:  330:
+        2:  331:    return reuse_mmap;
+        -:  332:}
+        -:  333:
+        -:  334:/* Gracefully stop/close the shared memory segment */
+        1:  335:void restart_mmap_close(void) {
+        1:  336:    msync(mmap_base, slabmem_limit, MS_SYNC);
+        -:  337:
+        1:  338:    if (restart_save(memory_file) != 0) {
+    #####:  339:        fprintf(stderr, "[restart] failed to save metadata");
+        -:  340:    }
+        -:  341:
+        1:  342:    if (munmap(mmap_base, slabmem_limit) != 0) {
+    #####:  343:        perror("[restart] failed to munmap shared memory");
+        1:  344:    } else if (close(mmap_fd) != 0) {
+    #####:  345:        perror("[restart] failed to close shared memory fd");
+        -:  346:    }
+        -:  347:
+        1:  348:    free(memory_file);
+        1:  349:}
+        -:  350:
+        -:  351:// given memory base, quickly walk memory and do pointer fixup.
+        -:  352:// do this once on startup to avoid having to do pointer fixup on every
+        -:  353:// reference from hash table or LRU.
+        1:  354:unsigned int restart_fixup(void *orig_addr) {
+        1:  355:    struct timeval tv;
+        1:  356:    uint64_t checked = 0;
+        1:  357:    const unsigned int page_size = settings.slab_page_size;
+        1:  358:    unsigned int page_remain = page_size;
+        -:  359:
+        1:  360:    gettimeofday(&tv, NULL);
+        1:  361:    if (settings.verbose > 0) {
+    #####:  362:        fprintf(stderr, "[restart] original memory base: [%p] new base: [%p]\n", orig_addr, mmap_base);
+    #####:  363:        fprintf(stderr, "[restart] recovery start [%d.%d]\n", (int)tv.tv_sec, (int)tv.tv_usec);
+        -:  364:    }
+        -:  365:
+        -:  366:    // since chunks don't align with pages, we have to also track page size.
+   184561:  367:    while (checked < slabmem_limit) {
+        -:  368:        //fprintf(stderr, "checked: %lu\n", checked);
+   184560:  369:        item *it = (item *)((char *)mmap_base + checked);
+        -:  370:
+   369120:  371:        int size = slabs_fixup((char *)mmap_base + checked,
+   184560:  372:                checked % settings.slab_page_size);
+        -:  373:        //fprintf(stderr, "id: %d, size: %d remain: %u\n", it->slabs_clsid, size, page_remain);
+        -:  374:        // slabber gobbled an entire page, skip and move on.
+   184560:  375:        if (size == -1) {
+      61*:  376:            assert(page_remain % page_size == 0);
+      61*:  377:            assert(page_remain == page_size);
+       61:  378:            checked += page_remain;
+       61:  379:            page_remain = page_size;
+       61:  380:            continue;
+        -:  381:        }
+        -:  382:
+   184499:  383:        if (it->it_flags & ITEM_LINKED) {
+        -:  384:            // fixup next/prev links while on LRU.
+       42:  385:            if (it->next) {
+       25:  386:                it->next = (item *)((mc_ptr_t)it->next - (mc_ptr_t)orig_addr);
+       25:  387:                it->next = (item *)((mc_ptr_t)it->next + (mc_ptr_t)mmap_base);
+        -:  388:            }
+       42:  389:            if (it->prev) {
+       25:  390:                it->prev = (item *)((mc_ptr_t)it->prev - (mc_ptr_t)orig_addr);
+       25:  391:                it->prev = (item *)((mc_ptr_t)it->prev + (mc_ptr_t)mmap_base);
+        -:  392:            }
+        -:  393:
+        -:  394:            //fprintf(stderr, "item was linked\n");
+       42:  395:            do_item_link_fixup(it);
+        -:  396:        }
+        -:  397:
+   184499:  398:        if (it->it_flags & (ITEM_CHUNKED|ITEM_CHUNK)) {
+       67:  399:            item_chunk *ch;
+       67:  400:            if (it->it_flags & ITEM_CHUNKED) {
+       22:  401:                ch = (item_chunk *) ITEM_schunk(it);
+        -:  402:                // Sigh. Chunked items are a hack; the clsid is the clsid of
+        -:  403:                // the full object (always the largest slab class) rather than
+        -:  404:                // the actual chunk.
+        -:  405:                // I bet this is fixable :(
+       22:  406:                size = slabs_size(ch->orig_clsid);
+        -:  407:                //fprintf(stderr, "fixing chunked item header [%d]\n", size);
+        -:  408:            } else {
+        -:  409:                //fprintf(stderr, "fixing item chunk [%d]\n", size);
+        -:  410:                ch = (item_chunk *) it;
+        -:  411:            }
+       67:  412:            if (ch->next) {
+       45:  413:                ch->next = (item_chunk *)((mc_ptr_t)ch->next - (mc_ptr_t)orig_addr);
+       45:  414:                ch->next = (item_chunk *)((mc_ptr_t)ch->next + (mc_ptr_t)mmap_base);
+        -:  415:            }
+       67:  416:            if (ch->prev) {
+       45:  417:                ch->prev = (item_chunk *)((mc_ptr_t)ch->prev - (mc_ptr_t)orig_addr);
+       45:  418:                ch->prev = (item_chunk *)((mc_ptr_t)ch->prev + (mc_ptr_t)mmap_base);
+        -:  419:            }
+       67:  420:            if (ch->head) {
+       67:  421:                ch->head = (item *)((mc_ptr_t)ch->head - (mc_ptr_t)orig_addr);
+       67:  422:                ch->head = (item *)((mc_ptr_t)ch->head + (mc_ptr_t)mmap_base);
+        -:  423:            }
+        -:  424:        }
+        -:  425:
+        -:  426:        // next chunk
+   184499:  427:        checked += size;
+   184499:  428:        page_remain -= size;
+   184499:  429:        if (size > page_remain) {
+        -:  430:            //fprintf(stderr, "doot %d\n", page_remain);
+       67:  431:            checked += page_remain;
+       67:  432:            page_remain = settings.slab_page_size;
+        -:  433:        }
+        -:  434:        //assert(checked != 3145728);
+        -:  435:    }
+        -:  436:
+        1:  437:    if (settings.verbose > 0) {
+    #####:  438:        gettimeofday(&tv, NULL);
+    #####:  439:        fprintf(stderr, "[restart] recovery end [%d.%d]\n", (int)tv.tv_sec, (int)tv.tv_usec);
+        -:  440:    }
+        -:  441:
+        1:  442:    return 0;
+        -:  443:}

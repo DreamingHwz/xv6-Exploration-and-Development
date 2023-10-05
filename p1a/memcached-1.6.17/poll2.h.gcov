@@ -1,0 +1,74 @@
+        -:    0:Source:/usr/include/x86_64-linux-gnu/bits/poll2.h
+        -:    0:Graph:logger.gcno
+        -:    0:Data:logger.gcda
+        -:    0:Runs:381
+        -:    1:/* Checking macros for poll functions.
+        -:    2:   Copyright (C) 2012-2022 Free Software Foundation, Inc.
+        -:    3:   This file is part of the GNU C Library.
+        -:    4:
+        -:    5:   The GNU C Library is free software; you can redistribute it and/or
+        -:    6:   modify it under the terms of the GNU Lesser General Public
+        -:    7:   License as published by the Free Software Foundation; either
+        -:    8:   version 2.1 of the License, or (at your option) any later version.
+        -:    9:
+        -:   10:   The GNU C Library is distributed in the hope that it will be useful,
+        -:   11:   but WITHOUT ANY WARRANTY; without even the implied warranty of
+        -:   12:   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        -:   13:   Lesser General Public License for more details.
+        -:   14:
+        -:   15:   You should have received a copy of the GNU Lesser General Public
+        -:   16:   License along with the GNU C Library; if not, see
+        -:   17:   <https://www.gnu.org/licenses/>.  */
+        -:   18:
+        -:   19:#ifndef _SYS_POLL_H
+        -:   20:# error "Never include <bits/poll2.h> directly; use <sys/poll.h> instead."
+        -:   21:#endif
+        -:   22:
+        -:   23:
+        -:   24:__BEGIN_DECLS
+        -:   25:
+        -:   26:extern int __REDIRECT (__poll_alias, (struct pollfd *__fds, nfds_t __nfds,
+        -:   27:				      int __timeout), poll);
+        -:   28:extern int __poll_chk (struct pollfd *__fds, nfds_t __nfds, int __timeout,
+        -:   29:		       __SIZE_TYPE__ __fdslen)
+        -:   30:    __attr_access ((__write_only__, 1, 2));
+        -:   31:extern int __REDIRECT (__poll_chk_warn, (struct pollfd *__fds, nfds_t __nfds,
+        -:   32:					 int __timeout, __SIZE_TYPE__ __fdslen),
+        -:   33:		       __poll_chk)
+        -:   34:  __warnattr ("poll called with fds buffer too small file nfds entries");
+        -:   35:
+        -:   36:__fortify_function __fortified_attr_access (__write_only__, 1, 2) int
+       62:   37:poll (struct pollfd *__fds, nfds_t __nfds, int __timeout)
+        -:   38:{
+      62*:   39:  return __glibc_fortify (poll, __nfds, sizeof (*__fds),
+        -:   40:			  __glibc_objsize (__fds),
+        -:   41:			  __fds, __nfds, __timeout);
+        -:   42:}
+        -:   43:
+        -:   44:
+        -:   45:#ifdef __USE_GNU
+        -:   46:extern int __REDIRECT (__ppoll_alias, (struct pollfd *__fds, nfds_t __nfds,
+        -:   47:				       const struct timespec *__timeout,
+        -:   48:				       const __sigset_t *__ss), ppoll);
+        -:   49:extern int __ppoll_chk (struct pollfd *__fds, nfds_t __nfds,
+        -:   50:			const struct timespec *__timeout,
+        -:   51:			const __sigset_t *__ss, __SIZE_TYPE__ __fdslen)
+        -:   52:    __attr_access ((__write_only__, 1, 2));
+        -:   53:extern int __REDIRECT (__ppoll_chk_warn, (struct pollfd *__fds, nfds_t __nfds,
+        -:   54:					  const struct timespec *__timeout,
+        -:   55:					  const __sigset_t *__ss,
+        -:   56:					  __SIZE_TYPE__ __fdslen),
+        -:   57:		       __ppoll_chk)
+        -:   58:  __warnattr ("ppoll called with fds buffer too small file nfds entries");
+        -:   59:
+        -:   60:__fortify_function __fortified_attr_access (__write_only__, 1, 2) int
+        -:   61:ppoll (struct pollfd *__fds, nfds_t __nfds, const struct timespec *__timeout,
+        -:   62:       const __sigset_t *__ss)
+        -:   63:{
+        -:   64:  return __glibc_fortify (ppoll, __nfds, sizeof (*__fds),
+        -:   65:			  __glibc_objsize (__fds),
+        -:   66:			  __fds, __nfds, __timeout, __ss);
+        -:   67:}
+        -:   68:#endif
+        -:   69:
+        -:   70:__END_DECLS

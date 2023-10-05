@@ -1,0 +1,37 @@
+        -:    0:Source:hash.c
+        -:    0:Graph:hash.gcno
+        -:    0:Data:hash.gcda
+        -:    0:Runs:381
+        -:    1:/* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+        -:    2:
+        -:    3:#include "memcached.h"
+        -:    4:#include "jenkins_hash.h"
+        -:    5:#include "murmur3_hash.h"
+        -:    6:#define XXH_INLINE_ALL // modifier for xxh3's include below
+        -:    7:#include "xxhash.h"
+        -:    8:
+        -:    9:hash_func hash;
+        -:   10:
+    #####:   11:static uint32_t XXH3_hash(const void *key, size_t length) {
+    #####:   12:    return (uint32_t)XXH3_64bits(key, length);
+        -:   13:}
+        -:   14:
+      102:   15:int hash_init(enum hashfunc_type type) {
+      102:   16:    switch(type) {
+        7:   17:        case JENKINS_HASH:
+        7:   18:            hash = jenkins_hash;
+        7:   19:            settings.hash_algorithm = "jenkins";
+        7:   20:            break;
+       95:   21:        case MURMUR3_HASH:
+       95:   22:            hash = MurmurHash3_x86_32;
+       95:   23:            settings.hash_algorithm = "murmur3";
+       95:   24:            break;
+    #####:   25:        case XXH3_HASH:
+    #####:   26:            hash = XXH3_hash;
+    #####:   27:            settings.hash_algorithm = "xxh3";
+    #####:   28:            break;
+        -:   29:        default:
+        -:   30:            return -1;
+        -:   31:    }
+        -:   32:    return 0;
+        -:   33:}
