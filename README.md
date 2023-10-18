@@ -1,120 +1,121 @@
-# CS537-Operating-System
+# Operating-System Projects
 
-These are the course projects from [CS537 Introduction to Operating Systems](https://pages.cs.wisc.edu/~remzi/Classes/537/Fall2022/) guided by Professor [Remzi Arpaci-Dusseau](http://www.cs.wisc.edu/~remzi) during Fall 2022 semester at University of Wisconsin-Madison. Original project descriptions and course materials can be found on the course website. REALLY love the course and it really inspires me. Many thanks to Prof. Remzi.
+This repository showcases a variety of operating system projects I've worked on, fortunately guided by Professor [Remzi Arpaci-Dusseau](http://www.cs.wisc.edu/~remzi). These projects cover enhancements to Memcached, new system calls added to xv6, a Unix shell, scheduling and virtual memory in xv6, a multi-threaded merge sort, kernel threads, and a distributed file system.
 
-## P1A
-Some codes are added for the command "mult" and "div" in Memcached. Now it can implement multiplication and division commands, such as "mult x 4" and "div x 100" after setting x.
+## Adding Commands to Memcached
 
-Some changes:
-* In file "proto_text.c": replace with "short incr" in the function "static void process_arithmetic_command". Add codes that recognize the tokens of "mult" and "div".i
-* In file "vim thread.c": replace with "short incr" in the function "enum delta_result_type add_delta".
-* In file "memcached.c" & "memcached.h": replace with "const short incr" in the function "enum delta_result_type do_add_delta" and "enum delta_result_type add_delta". Add cases of "incr" to implement the function of multiplication and division.
+### Description
 
-## P1B - Adding System Calls to xv6 System
-Add system call  ```int trace(const char *pathname)``` and ```int getcount(void)```.  
+Some valuable additions have been made to Memcached, enhancing its capabilities to support multiplication and division commands. Now, you can perform operations like `mult x 4` and `div x 100` after setting the variable `x`. These changes are detailed as follows:
 
-## P2A - Shell
+- In the file `proto_text.c`, replaced `short incr` in the function `static void process_arithmetic_command` and added code to recognize the tokens `mult` and `div.`
+- In the `thread.c` file, replaced `short incr` in the function `enum delta_result_type add_delta`.
+- In both `memcached.c` and `memcached.h`, replaced `const short incr` in the functions `enum delta_result_type do_add_delta` and `enum delta_result_type add_delta`. Also, added cases for `incr` to implement the functionality of multiplication and division.
 
-A Unix shell is built. It includes a file "wish.c".
+## Adding System Calls to xv6 System
 
-#### Description
+### Description
 
-The shell supports these commands:
-* ```exit```: exit the shell
-* ```cd```: change directory
-* ```path```: set path for executables
-* ```if```: if statement like ```if command == 0 THEN command fi```
-* other executable commands in ```/bin```, such as ```ls```, ```vim```.
+In this project, two new system calls have been added to the xv6 operating system, providing enhanced functionality:
 
-To run the shell:
-* ```gcc wish.c -o wish```
-* For interactive mode:  ```./wish```, For batch mode: ```./wish batch.txt```
-* Input command after prompt ```wish>```. For redirection, use ```>``` character like ```ls > output``` (to make my shell uers happy).
+- `int trace(const char *pathname)`: A system call to trace a pathname.
+- `int getcount(void)`: A system call to retrieve a count.
 
-#### Author
-Skylar Hou 10.12.2022
+## Shell
 
-## P2B - Scheduling and Virtual Memory in xv6
+### Description
 
-To change the scheduling policy to  a simple priority-based scheduler, set some pages to read-only or read-and-write, and add a Null-pointer Dereference.
+This repository features a Unix shell, including a file named "wish.c." The shell supports a range of essential commands, making it a versatile tool for interacting with the system. The supported commands include:
 
-#### Introduction
-Four system call is added:
-* ```settickets```: Change ```myproc()->tickets``` to ```int number```, which only equals to 1 (high) or 0 (low) in this project.
+- `exit`: To exit the shell.
+- `cd`: For changing the current directory.
+- `path`: To set the path for executable files.
+- `if`: Conditional statements like `if command == 0 THEN command fi`.
+- Other executable commands located in `/bin`, such as `ls` and `vim`.
 
-* ```getpinfo```: Fill current used processes status to ```struct pstat * p```, which is not a null pointer.
+To run the shell, follow these steps:
 
-* ```mprotect```: Change the protection bits in PTEs of ```int len``` of pages start at ```void * addr```. The ```addr``` should be page-aligned, and smaller than process memory size and virtual memory size.
+- Compile it with `gcc wish.c -o wish`.
+- For interactive mode, use `./wish`.
+- For batch mode, use `./wish batch.txt`.
+- Enter commands after the prompt `wish>`. For redirection, use the `>` character.
 
-* ```munprotect```
-Similar to ```mprotect``` but change the bit from read-only to read-and-write.
+## Scheduling and Virtual Memory in xv6
 
-To add a system call, ```usys.S``` ```syscall.c``` ```sysfile.c``` ```sysproc.c``` ```syscall.h``` ```user.h``` might be editted.
+### Description
 
-#### Author
-Skylar Hou
+This project focuses on changing the scheduling policy to a simple priority-based scheduler, setting some pages to read-only or read-and-write, and introducing a Null-pointer Dereference.
 
+**Introduction:**
+Four system calls have been added:
 
-## P3A - Parallel Sort
-It is a multi-thread merge sort.
+- `settickets`: Changes `myproc()->tickets` to an `int number`, which is either 1 (high) or 0 (low) in this project.
+- `getpinfo`: Fills the status of the currently used processes into `struct pstat * p`, which is not a null pointer.
+- `mprotect`: Changes the protection bits in page table entries for a specified range of pages.
+- `munprotect`: Similar to `mprotect`, but changes the protection bit from read-only to read-and-write.
 
-#### Introduction
-```
+To add a system call, you may need to edit `usys.S`, `syscall.c`, `sysfile.c`, `sysproc.c`, `syscall.h`, and `user.h`.
+
+## Parallel Sort
+
+### Introduction
+
+This project presents a multi-threaded merge sort implementation using a custom data structure:
+
+```c
 typedef struct {
     int key;
     char value[96];
 } record_t;
 typedef record_t* record_ptr;
 ```
-* ```record_ptr inputMmap(char* name)```: to map the input file into the address space, then access bytes of the input file via pointers.
-* ```record_ptr* initRecords(record_ptr mapped)```: init an array of ptr to each records.
-* ```void multithread_sort()```: do multi-thread sort. Each thread sorts part of the records array.
-* ```void output(record_ptr* records, char* filename)```: Output the records array to file.
 
-#### Usage
+**Authors:** Skylar Hou, Yuxin Liu
 
+**Key Functions:**
+* `record_ptr inputMmap(char* name)`: Maps the input file into the address space and allows access to bytes of the input file via pointers.
+* `record_ptr* initRecords(record_ptr mapped)`: Initializes an array of pointers to each record.
+* `void multithread_sort()`: Performs a multi-threaded sort, with each thread handling a portion of the records array.
+* `void output(record_ptr* records, char* filename)`: Outputs the records array to a file.
+
+**Usage:**
 ```
 gcc -Wall -Werror -pthread -O psort.c -o psort
 ./psort input output
 ```
 
+## Kernel Threads
 
-#### Author
+### Description
 
-Skylar Hou, Yuxin Liu
+This project introduces kernel threads to the xv6 operating system, enhancing its concurrency and process management capabilities.
 
+**Authors:** Skylar Hou, Yuxin Liu
 
-## P3B - Kernel Threads
-
+**Overview:**
+* `clone`: This system call creates a new kernel thread that shares the calling process's address space, with the new process using its stack as the user stack.
+* `join`: This system call waits for a child thread that shares the address space with the calling process to exit.
+* `thread_create` and `thread_join` create a user stack and a child thread.
+* A simple spin lock is implemented using the atomic function `fetch_and_add`.
+* `wait` and `exit` have been modified to work with child processes that do not share the address space with the current process.
+* `growproc` is changed to grow all child processes that share the same address space with the current process. Some files have been modified to integrate system calls.
 Adding kernel threads to xv6. 
 
-#### Overview
 
-* ```clone``` This call creates a new kernel thread that shares the calling process's address space. The new process uses stack as its user stack.
-* ```join``` This call waits for a child thread that shares the address space with the calling process to exit.
-* ```thread_create``` ```thread_join``` Create a user stack and a child thread.
-* ```lock``` A simple spin lock use the atom function ```fetch_and_add```.
-* ```wait``` and ```exit```are changed to work with child processes that do not share the address space with this process.
-* ```growproc``` is changed to grow all the child processes that share the same address space with the current process.
-* Some file is modified to add system calls.
+## Distributed File System
 
-#### Author
+### Description
 
-Yuxin Liu, Skylar Hou
+This repository includes a distributed file system with a file server containing an on-disk file system and a client library, which offers a range of features:
 
+**Authors:** Skylar Hou, Yuxin Liu
 
-## P4 - Distributed File System
-
-A distributed file system includes a file server with the on-disk file system and client library, which supports:  
-* ```int MFS_Init(char *hostname, int port)```: find the server exporting the file system.
-* ```int MFS_Lookup(int pinum, char *name)```: look up the inode number of entry ```name```.
-* ```int MFS_Stat(int inum, MFS_Stat_t *m)```: return the file information of ```inum```.
-* ```int MFS_Write(int inum, char *buffer, int offset, int nbytes)```: write ```buffer``` with size ```nbytes``` to ```offset``` of the file specified by ```inum```. Return 0 for success, otherwise return -1.
-* ```int MFS_Read(int inum, char *buffer, int offset, int nbytes)```: read ```nbytes``` of data from ```offset``` of the file specified by ```inum``` to ```buffer```. Return 0 for success, otherwise return -1.
-* ```int MFS_Creat(int pinum, int type, char *name)```: create a file of ```type``` and ```name``` in parent directory of ```pinum``` .
-* ```int MFS_Unlink(int pinum, char *name)```: delete a file with ```name``` in parent directory of ```pinum```.
-* ```int MFS_Shutdown()```: tell server to exit.
-
-#### Author
-
-Skylar Hou, Yuxin Liu
+**Overview:**
+* `int MFS_Init(char *hostname, int port)`: Find the server exporting the file system.
+* `int MFS_Lookup(int pinum, char *name)`: Look up the inode number of an entry by name.
+* `int MFS_Stat(int inum, MFS_Stat_t *m)`: Return file information for a given inode.
+* `int MFS_Write(int inum, char *buffer, int offset, int nbytes)`: Write data to a file specified by inum.
+* `int MFS_Read(int inum, char *buffer, int offset, int nbytes)`: Read data from a file specified by inum to buffer.
+* `int MFS_Creat(int pinum, int type, char *name)`: Create a file of a specified type in the parent directory of pinum.
+* `int MFS_Unlink(int pinum, char *name)`: Delete a file with a given name in the parent directory of pinum.
+* `int MFS_Shutdown()`: Tell the server to exit.
