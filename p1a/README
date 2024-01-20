@@ -1,7 +1,0 @@
-P1A:
-Some codes are added for the command of "mult" and "div" in Memcached. Now it can implement multiplication and division commands, such as "mult x 4" and "div x 100" after setting x.
-
-Some changes:
-* In file "proto_text.c": replace with "short incr" in the function "static void process_arithmetic_command". Add codes that recognize the tokens of "mult" and "div".i
-* In file "vim thread.c": replace with "short incr" in the function "enum delta_result_type add_delta".
-* In file "memcached.c" & "memcached.h": replace with "const short incr" in the function "enum delta_result_type do_add_delta" and "enum delta_result_type add_delta". Add cases of "incr" to implement the function of multiplication and division.

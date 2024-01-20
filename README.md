@@ -70,8 +70,6 @@ typedef struct {
 typedef record_t* record_ptr;
 ```
 
-**Authors:** Skylar Hou, Yuxin Liu
-
 **Key Functions:**
 * `record_ptr inputMmap(char* name)`: Maps the input file into the address space and allows access to bytes of the input file via pointers.
 * `record_ptr* initRecords(record_ptr mapped)`: Initializes an array of pointers to each record.
@@ -84,13 +82,13 @@ gcc -Wall -Werror -pthread -O psort.c -o psort
 ./psort input output
 ```
 
+**Authors:** Skylar Hou, Yuxin Liu
+
 ## Kernel Threads
 
 ### Description
 
 This project introduces kernel threads to the xv6 operating system, enhancing its concurrency and process management capabilities.
-
-**Authors:** Skylar Hou, Yuxin Liu
 
 **Overview:**
 * `clone`: This system call creates a new kernel thread that shares the calling process's address space, with the new process using its stack as the user stack.
@@ -101,14 +99,14 @@ This project introduces kernel threads to the xv6 operating system, enhancing it
 * `growproc` is changed to grow all child processes that share the same address space with the current process. Some files have been modified to integrate system calls.
 Adding kernel threads to xv6. 
 
+**Authors:** Skylar Hou, Yuxin Liu
+
 
 ## Distributed File System
 
 ### Description
 
 This repository includes a distributed file system with a file server containing an on-disk file system and a client library, which offers a range of features:
-
-**Authors:** Skylar Hou, Yuxin Liu
 
 **Overview:**
 * `int MFS_Init(char *hostname, int port)`: Find the server exporting the file system.
@@ -119,3 +117,5 @@ This repository includes a distributed file system with a file server containing
 * `int MFS_Creat(int pinum, int type, char *name)`: Create a file of a specified type in the parent directory of pinum.
 * `int MFS_Unlink(int pinum, char *name)`: Delete a file with a given name in the parent directory of pinum.
 * `int MFS_Shutdown()`: Tell the server to exit.
+
+**Authors:** Skylar Hou, Yuxin Liu

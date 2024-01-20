@@ -20,4 +20,4 @@ To run the shell:
 ## Author
 Skylar Hou 
 
-10.12.2022 at UW-Madison
+Oct 12, 2022 at UW-Madison

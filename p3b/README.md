@@ -14,4 +14,4 @@ Adding kernel threads to xv6.
 
 ## Author
 
-Yuxin Liu, Skylar Hou
+Skylar Hou, Yuxin Liu

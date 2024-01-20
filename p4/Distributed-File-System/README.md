@@ -4,8 +4,6 @@
 
 This repository includes a distributed file system with a file server containing an on-disk file system and a client library, which offers a range of features:
 
-**Authors:** Skylar Hou, Yuxin Liu
-
 **Overview:**
 * `int MFS_Init(char *hostname, int port)`: Find the server exporting the file system.
 * `int MFS_Lookup(int pinum, char *name)`: Look up the inode number of an entry by name.
@@ -15,3 +13,5 @@ This repository includes a distributed file system with a file server containing
 * `int MFS_Creat(int pinum, int type, char *name)`: Create a file of a specified type in the parent directory of pinum.
 * `int MFS_Unlink(int pinum, char *name)`: Delete a file with a given name in the parent directory of pinum.
 * `int MFS_Shutdown()`: Tell the server to exit.
+
+**Authors:** Skylar Hou, Yuxin Liu
