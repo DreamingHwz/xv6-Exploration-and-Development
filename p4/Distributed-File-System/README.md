@@ -14,4 +14,4 @@ This repository includes a distributed file system with a file server containing
 * `int MFS_Unlink(int pinum, char *name)`: Delete a file with a given name in the parent directory of pinum.
 * `int MFS_Shutdown()`: Tell the server to exit.
 
-**Authors:** Skylar Hou, Yuxin Liu
+**Authors:** Skylar Hou (`fs.c`, `fs.h`, `server.c`), Yuxin Liu (`libmfs.c`, `client.c`)
